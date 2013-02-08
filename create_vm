@@ -48,7 +48,7 @@ if [ -z ${IMAGE_ID} ]; then
 fi
 
 # create a pub/priv keypair in the root directory. If not running as root, you will need to change this path. If keys in the .ssh path exist, you will be prompted to overwrite. Select "y" to overwrite or you will get a "permission denied error".
-if [ -z ~/.ssh/id_rsa.pub ] ; then
+if [ ! -e ~/.ssh/id_rsa.pub ] ; then
 ssh-keygen -f ~/.ssh/id_rsa -t rsa -N ''
 fi  
 #add the public key to nova.
