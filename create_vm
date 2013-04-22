@@ -18,7 +18,8 @@ echo -n $2
 }
 COMPUTE_HOST=`nova-manage host list | grep com | head -1 | awk -F' ' '{print $1}'`
 if [ -z ${COMPUTE_HOST} ] ; then
- die "There don't seem to be any 'compute' hosts available, perhaps run puppet agent on them again?"
+ echo "There don't seem to be any 'compute' hosts available, perhaps run puppet agent on them again?"
+ exit 1
 fi
    
 # initialize a network in quantum for use by VMs and assign it a non-routed subnet
@@ -80,7 +81,8 @@ while [ "${BUILD_STAT}" != "ACTIVE" ]; do
  if [ "${BUILD_STAT}" == 'ACTIVE' ]; then
    break
  elif [ "${BUILD_STAT}" == 'ERROR' ]; then
-   die "The vm failed to build." 
+   echo "The vm failed to build." 
+   exit 1
  fi
 done
 
