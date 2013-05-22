@@ -16,7 +16,10 @@ echo -n $2
     (( count ++ ))
   done
 }
-COMPUTE_HOST=`nova-manage host list | grep com | head -1 | awk -F' ' '{print $1}'`
+# select the first avaiable compute node from the list of available compute nodes
+#COMPUTE_HOST=`nova-manage host list | grep com | head -1 | awk -F' ' '{print $1}'`
+COMPUTE_HOST=`nova host-list | grep compute | head -1 | awk -F' ' '{print $2}'`
+
 if [ -z ${COMPUTE_HOST} ] ; then
  echo "There don't seem to be any 'compute' hosts available, perhaps run puppet agent on them again?"
  exit 1
@@ -26,6 +29,7 @@ fi
 NET_ID=`quantum net-list | grep private | awk -F' ' '{ print $2 }'`
 
 if [ -z ${NET_ID} ] ; then
+  # create public/pvt networks and a quantum router using net_setup script 
   ./net_setup
   NET_ID=`quantum net-list | grep private | awk -F' ' '{ print $2 }'`
 fi
@@ -66,7 +70,7 @@ nova secgroup-add-rule sec_test icmp -1 -1 0.0.0.0/0
 fi
 
 instance_name='test_vm'
-# Boot the added image against the "1" flavor which by default maps to a micro instance.   Include the percise_test group so our address will work when we add it later 
+# Boot the added image against the "1" flavor which by default maps to a micro instance.   Include the precise_test group so our address will work when we add it later 
 NOVA_EXIST=`nova list | grep ${instance_name}`
 if ! [ "${NOVA_EXIST}" ] ; then
   BUILD_STAT=`nova boot --flavor 1 --security_groups sec_test --nic net-id=${NET_ID} --image ${IMAGE_ID} --key_name key_test $instance_name | grep status | awk -F' ' '{print $4}'`
