@@ -1,0 +1,23 @@
+#!/bin/bash
+# This simple bash script can be used to clean up/remove Linux network namespaces
+# created on the system
+
+#!!! WARNING !!!
+# Use this script to remove ip namespaces only when you have no Openstack
+# networks configured or no openstack quantum elements are present on your control server
+echo "Looking for ip netns namespaces"
+
+NUM_NETNS_REC=`ip netns | awk 'BEGIN { RS = "\n\t" }; {print NF}'`
+
+echo "Found $NUM_NETNS_REC namespaces to delete"
+
+for ((i=1; i<=NUM_NETNS_REC; i++))
+do
+    NETNS_REC=`ip netns | awk -v i="$i" 'BEGIN { RS = "\n\t" }; {print $i}'`
+    #echo "$i: $NETNS_REC"
+    echo "Deleting namespace $i: $NETNS_REC"
+    ip netns delete $NETNS_REC
+done
+
+
+
