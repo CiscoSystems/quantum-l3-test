@@ -22,7 +22,9 @@ fi
 
 IMAGE_ID=`glance index | grep 'test' | head -1 |  awk -F' ' '{print $1}'`
 PRIV_SUBNET_ID=`quantum subnet-list | grep '192.' | awk -F' ' '{print $2}'`
-FLOAT_ID=`quantum floatingip-list | grep 192 | awk -F' ' '{print $2}'`
+# find the id for floating ip
+FLOAT_ID=`quantum floatingip-list | grep '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | awk -F' ' '{print $2}'`
+echo $FLOAT_ID
  if ! quantum floatingip-delete $FLOAT_ID >&/dev/null ; then
   echo perhaps you did not create a floating ip?
   echo continuing...

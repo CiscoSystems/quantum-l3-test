@@ -24,12 +24,17 @@ function valid_ip()
 }
 
 # Find the Public and private networks:
+# The public ip information is specific to POD5 of Openstack lab in building SJ13
+# Please see http://wikicentral.cisco.com/display/OPENSTACK/DC1+Layer+3+Address+Management
+# for more information
 [ -e .network ] && source .network >& /dev/null
-[ -z ${PUB_IP} ] && PUB_IP="192.168.0.0"
-[ -z ${PUB_CIDR} ] && PUB_CIDR='24'
-[ -z ${PRIV_IP} ] && PRIV_IP="10.168.0.0"
+[ -z ${PUB_IP} ] && PUB_IP="172.29.74.192"
+[ -z ${PUB_CIDR} ] && PUB_CIDR='27'
+[ -z ${PUB_START}] && PUB_START="172.29.74.196"
+[ -z ${PUB_END}] && PUB_END="172.29.74.222"
+[ -z ${PRIV_IP} ] && PRIV_IP="192.168.1.0"
 [ -z ${PRIV_CIDR} ] && PRIV_CIDR='24'
-[ -z ${DNS} ] && DNS='192.168.0.254'
+[ -z ${DNS} ] && DNS='172.29.74.154'
 
 echo -e "Current net info:\nPublic: ${PUB_IP}/${PUB_CIDR}\nPrivate: ${PRIV_IP}/${PRIV_CIDR}\nDNS: ${DNS}\n\n"
 read -p "Would you like to change this? (y|n) [n]: " CHANGE
@@ -40,19 +45,34 @@ if [ "${CHANGE}" != 'n' ]; then
 read -p "What is your public network IP [${PUB_IP}]: " IP_IN
 [ -z ${IP_IN} ] ||PUB_IP=${IP_IN}
 if  ! valid_ip ${PUB_IP} ; then
- die "Please enter a valid public ip"
+ die "Please enter a valid public n/w ip address"
 fi
 
 read -p "What is the CIDR for that network[${PUB_CIDR}]: " PUB_CIDR
 [ -z ${PUB_CIDR} ] && PUB_CIDR='24'
 
+read -p "Please enter the start address of the public (floating) ip pool[${PUB_START}]: " PUB_START
+[ -z ${PUB_START} ] || PUB_START=${PUB_START}
+if  ! valid_ip ${PUB_START} ; then
+ die "Please enter a valid public n/w start ip address"
+fi
+
+read -p "Please enter the end address of the public (floating) ip pool[${PUB_END}]: " PUB_END
+[ -z ${PUB_END} ] || PUB_END=${PUB_END}
+if  ! valid_ip ${PUB_END} ; then
+ die "Please enter a valid public n/w end ip address"
+fi
+
+
 echo "export PUB_IP=${PUB_IP}" > .network
 echo "export PUB_CIDR=${PUB_CIDR}" >> .network
+echo "export PUB_START=${PUB_START}" >> .network
+echo "export PUB_END=${PUB_END}" >> .network
 
 read -p "What is your private network IP [${PRIV_IP}]: " IP_IN
 [ -z ${IP_IN} ] || PRIV_IP=${IP_IN}
 if  ! valid_ip ${PRIV_IP} ; then
- die "Please enter a valid public ip"
+ die "Please enter a valid private ip"
 fi
 read -p "What is the CIDR for that network[${PRIV_CIDR}]: " PRIV_CIDR
 [ -z ${PRIV_CIDR} ] && PRIV_CIDR='24'
@@ -66,7 +86,7 @@ read -p "What is the DNS for your public network[${DNS}]: " DNS
 echo "export DNS=${DNS}" >> .network
 fi
 if ! valid_ip ${PUB_IP} ; then
- die "Please enter a valid ip address"
+ die "Please enter a valid public ip address"
 fi
 PUB_NET="${PUB_IP}/${PUB_CIDR}"
 PRIV_NET="${PRIV_IP}/${PRIV_CIDR}"
@@ -80,11 +100,12 @@ if ! PUB_NET_ID=`quantum net-create public --router:external=True | grep ' id ' 
  exit 1
 fi
 
-if ! PUB_SUBNET_ID=`quantum subnet-create public ${PUB_NET} | grep ' id ' | awk -F' ' '{print $4}'` ; then
+if ! PUB_SUBNET_ID=`quantum subnet-create --allocation-pool start=${PUB_START},end=${PUB_END}  public ${PUB_NET} | grep ' id ' | awk -F' ' '{print $4}'` ; then
  echo 'no public subnet created'
  exit 1
 fi
 echo "Public Net and Subnet ID: ${PUB_NET_ID} ${PUB_SUBNET_ID}"
+
 # Create the private network, ans assicate an IP, L3 cnnection is next
 PRIV_NET_ID=`quantum net-create private | grep ' id ' | awk -F' ' '{print $4}'`
 PRIV_SUBNET_ID=`quantum subnet-create private ${PRIV_NET}  --dns_nameservers list=true ${DNS} | grep ' id ' | awk -F' ' '{print $4}'`
@@ -95,7 +116,8 @@ PRIV_ROUTER=`quantum router-create private_router_1 | grep ' id ' | awk -F' ' '{
 PRIV_ROUTER_INT=`quantum router-interface-add private_router_1 "${PRIV_SUBNET_ID}"| grep ' id ' | awk -F' ' '{print $4}'`
 # Now connect the router to the external public newtork
 PUB_PRIV_ROUTER=`quantum router-gateway-set private_router_1 "${PUB_NET_ID}" | grep ' id ' | awk -F' ' '{print $4}'`
+
 PUB_NETWORK=`quantum port-list -- --device_id ${PRIV_ROUTER} --device_owner network:router_gateway | grep ip_address | awk -F'"' '{print $8}'`
-#PRIV_ROUTER=`quantum router-list | grep private_router_1 | awk -F' ' '{print $2}'`
+PRIV_ROUTER=`quantum router-list | grep private_router_1 | awk -F' ' '{print $2}'`
 echo "Private Router and Subnet ID: qrouter-${PRIV_ROUTER} ${PUB_NETWORK}"
 route add -net ${PRIV_IP}/${PRIV_CIDR} gw ${PUB_NETWORK}
